@@ -24,14 +24,14 @@ int main(void){
     //repeat forever
     for(;;){
         //update status to serial buffer
-        if (UCSR0A & (1<<UDRE0)){ //check if ready to send data
-            if (position > 0){
+        if (UCSR0A & (1<<UDRE0)){   //check if ready to send data
+            if (position > 0){      //send clockwise character
                 UDR0 = CW;
-                position --;
+                position --;        //update position buffer
             }
-            else if (position < 0){
+            else if (position < 0){ //send counter clockwise character
                 UDR0 = CCW;
-                position ++;
+                position ++;        //update position buffer
             }
         }
     }
@@ -48,18 +48,32 @@ void setupSerial(){
 }
 
 void setupRudder(){
+    DDRB    &=  ~(0b11);    //set PB0:1 as input
+    PORTB   &=  ~(0b11);    //no pull-up on PB0:1
     PCICR   =   (1<<PCIE0); //enable interrupt from pcint0:7
     PCMSK0  |=  (1<<PCINT0)|//interrupt on PB0
                 (1<<PCINT1);//interrupt on PB1
 }
 
-/* encoder step interrupts */
+/* encoder step interrupt */
 ISR(PCINT0_vect){
-    static uint8_t previousStep = 0b00; //for keeping track of which directon the step was
-    uint8_t step = PORTB & 0b11;        //get the status of PB0:1 
-    if (step == previousStep ^ 0b01)    //step clockwise from previous
+    static uint8_t sequence[] = {               //gray encoding for rotary encoder data
+        0b00,
+        0b01,
+        0b11,
+        0b10};
+    static uint8_t previousStep = 0;            //position of prefious step in sequence
+    uint8_t step = PINB & 0b11;                 //get the status of PB0:1 
+
+    if (step == sequence[previousStep+1])       //step clockwise from previous
         position ++;
-    if (step == previousStep ^ 0b10)    //step counter clockwise from previous
+    else if (step == sequence[previousStep-1])  //step counter clockwise from previous
         position --;
-    previousStep = step;                //mark down current step position
+
+    int i;
+    for(i = 0; i<3; i++)                       //get current step location in sequence
+        if (sequence[i] == step){
+            previousStep = i;
+            break;
+        }
 }
