@@ -13,4 +13,4 @@ main.o:
 	avr-gcc -g -mmcu=atmega168 -o main.o main.c
 
 clean:
-	rm *.hex *.o
+	rm -f *.hex *.o
