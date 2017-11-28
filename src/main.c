@@ -49,7 +49,7 @@ void setupSerial(){
 
 void setupRudder(){
     DDRB    &=  ~(0b11);    //set PB0:1 as input
-    PORTB   &=  ~(0b11);    //no pull-up on PB0:1
+    PORTB   |=  0b11;       //pull-up on PB0:1
     PCICR   =   (1<<PCIE0); //enable interrupt from pcint0:7
     PCMSK0  |=  (1<<PCINT0)|//interrupt on PB0
                 (1<<PCINT1);//interrupt on PB1
@@ -64,10 +64,23 @@ ISR(PCINT0_vect){
         0b10};
     static uint8_t previousStep = 0;            //position of prefious step in sequence
     uint8_t step = PINB & 0b11;                 //get the status of PB0:1 
+    uint8_t forwardStep, backStep;              //values of step forwards and backwards
 
-    if (step == sequence[previousStep+1])       //step clockwise from previous
+    //predict next step forward
+    if (previousStep < sizeof(sequence)-1)      //check if step is within bounds
+        forwardStep = previousStep + 1;
+    else
+        forwardStep = 0;                        //wrap around
+
+    //predict next step backwards
+    if (previousStep > 0)                       //check if step is within bounds
+        backStep = previousStep - 1;
+    else
+        backStep = sizeof(sequence)-1;          //wrap around
+
+    if (step == sequence[forwardStep])          //step clockwise from previous
         position ++;
-    else if (step == sequence[previousStep-1])  //step counter clockwise from previous
+    else if (step == sequence[backStep])        //step counter clockwise from previous
         position --;
 
     int i;
