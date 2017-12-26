@@ -2,26 +2,56 @@
 import SDClient
 import serial
 import logging
+import threading
 import sys
+import time
+import numpy
 
 logging.basicConfig(level=logging.INFO)
 
 ser = serial.Serial()
-ser.timeout = 0
 ser.port = '/dev/ttyUSB0'
 ser.baudrate = 115200
 ser.open()
 
-#configure spacegame client
-c = SDClient.client('localhost', 'spaceRudder4700', 'testship')
-rudder = c.gameVariable(['rudder','yaw'])
 
-while True:
-    position = 0;
-    for char in ser.read(ser.inWaiting()).decode("utf-8"):
-        if char == ">":
-            position += 1
-        elif char == "<":
-            position -= 1
-    rudder.parse([str(position)])
-    logging.info(position)
+class rudder():
+    def __init__(self, server = 'localhost', ship = 'testship'):
+        #configure spacegame client
+        c = SDClient.client(server, 'spaceRudder4700', ship)
+        self.serverRudder = c.gameVariable(['rudder','yaw'])
+        self.position = 0
+        #translate three turns in to maximum steer
+        self.scalar = (1200*3)
+
+    def update(self,position):
+        self.position = numpy.clip(self.position+position,-self.scalar,self.scalar)
+        logging.info(self.position/self.scalar)
+
+    def updateLoop(self):
+        self.run = True
+        while self.run:
+            self.serverRudder.parse([str(self.position/self.scalar)])
+            time.sleep(0.1)
+
+r = rudder()
+updateThread = threading.Thread(target=r.updateLoop)
+updateThread.start()
+
+try:
+    while True:
+        position = 0;
+        charactersToRead = ser.inWaiting()
+        if not charactersToRead:
+            charactersToRead = 1
+        for char in ser.read(charactersToRead).decode("utf-8"):
+            if char == ">":
+                position += 1
+            elif char == "<":
+                position -= 1
+        r.update(position)
+except KeyboardInterrupt:
+    pass
+
+r.run = False
+updateThread.join()
