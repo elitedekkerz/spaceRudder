@@ -21,8 +21,8 @@ class rudder():
         c = SDClient.client(server, 'spaceRudder4700', ship)
         self.serverRudder = c.gameVariable(['rudder','yaw'])
         self.position = 0
-        #translate three turns in to maximum steer
-        self.scalar = (1200*3)
+        #translate maximum steering speed
+        self.scalar = (1200/4)
 
     def update(self,position):
         self.position = numpy.clip(self.position+position,-self.scalar,self.scalar)
@@ -32,6 +32,7 @@ class rudder():
         self.run = True
         while self.run:
             self.serverRudder.parse([str(self.position/self.scalar)])
+            self.position = 0
             time.sleep(0.1)
 
 r = rudder()
